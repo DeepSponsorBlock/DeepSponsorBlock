@@ -1,0 +1,5 @@
+click==7.1.2
+numpy==1.19.2
+pafy==0.5.5
+tqdm==4.50.2
+youtube-dl==2020.9.20
