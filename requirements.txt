@@ -1,4 +1,5 @@
 click==7.1.2
+ffmpeg-python==0.2.0
 numpy==1.19.2
 pafy==0.5.5
 tqdm==4.50.2
