@@ -35,11 +35,7 @@ class Video:
         return self.get_video_directory(root_path) / INDICATOR_FILENAME
 
     def download(self, root_path, fps):
-        # Do this first so that the lazy eval happens & if it causes any issues
-        # we don't end up with a broken file.
         try:
-            stream_url = self.video_stream_url
-
             indicator_file = self.get_indicator_file_path(root_path)
             if indicator_file.exists():
                 return True, None
@@ -49,6 +45,10 @@ class Video:
             # Delete the existing files, it's a partial download.
             if video_directory.exists():
                 shutil.rmtree(video_directory)
+
+            # Do this first so that the lazy eval happens & if it causes any issues
+            # we don't end up with a broken file.
+            stream_url = self.video_stream_url
 
             # Start downloading from scratch.
             video_directory.mkdir(parents=True)
