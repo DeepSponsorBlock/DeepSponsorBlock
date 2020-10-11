@@ -1,7 +1,7 @@
 import pathlib
 import shutil
-import subprocess
 
+import ffmpeg
 import pafy
 
 INDICATOR_FILENAME = "completed"
@@ -35,38 +35,49 @@ class Video:
         return self.get_video_directory(root_path) / INDICATOR_FILENAME
 
     def download(self, root_path, fps):
-        indicator_file = self.get_indicator_file_path(root_path)
-        if indicator_file.exists():
-            return True
+        # Do this first so that the lazy eval happens & if it causes any issues
+        # we don't end up with a broken file.
+        try:
+            stream_url = self.video_stream_url
 
-        video_directory = self.get_video_directory(root_path)
+            indicator_file = self.get_indicator_file_path(root_path)
+            if indicator_file.exists():
+                return True, None
 
-        # Delete the existing files, it's a partial download.
-        if video_directory.exists():
-            shutil.rmtree(video_directory)
+            video_directory = self.get_video_directory(root_path)
 
-        # Start downloading from scratch.
-        video_directory.mkdir(parents=True)
-        # '-q:v', '2',
-        ffmpeg_args = ['ffmpeg', '-i', self.video_stream_url, '-vf', 'fps=%.4f' % fps, str((video_directory / "%d.jpg").absolute())]
-        subprocess.run(ffmpeg_args, check=True, capture_output=True)
+            # Delete the existing files, it's a partial download.
+            if video_directory.exists():
+                shutil.rmtree(video_directory)
 
-        # Go through the files and label them.
-        for file in video_directory.glob("*.jpg"):
-            # Get the file's timestamp
-            timestamp = int(file.stem) / fps
+            # Start downloading from scratch.
+            video_directory.mkdir(parents=True)
+            out_filename = str((video_directory / "%d.jpg").absolute())
+            (ffmpeg
+              .input(stream_url)
+              .filter('fps', fps='%.4f' % fps)
+              .output(out_filename, **{'qscale:v': 2})
+              .run(quiet=True))
 
-            # Check if the file is sponsored
-            is_sponsored = any(
-                start <= timestamp < end for start, end in self.segments)
 
-            # Rename the file now.
-            file.rename(file.with_name("%s-%d.jpg" % (file.stem, int(is_sponsored))))
+            # Go through the files and label them.
+            for file in video_directory.glob("*.jpg"):
+                # Get the file's timestamp
+                timestamp = int(file.stem) / fps
 
-        # Save the finished indicator file.
-        indicator_file.touch()
+                # Check if the file is sponsored
+                is_sponsored = any(
+                    start <= timestamp < end for start, end in self.segments)
 
-        return True
+                # Rename the file now.
+                file.rename(file.with_name("%s-%d.jpg" % (file.stem, int(is_sponsored))))
+
+            # Save the finished indicator file.
+            indicator_file.touch()
+
+            return True, None
+        except BaseException as e:
+            return False, str(e)
 
 
 # ffmpeg -ss 00:00:30 -i $(youtube-dl -f 22 --get-url "$youtube_url") -vframes 1 -q:v 2 out.jpg

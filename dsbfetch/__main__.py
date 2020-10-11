@@ -31,6 +31,8 @@ def fetch(fps, max_threads, limit_count, input_csv, output_dir):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = [executor.submit(download, video) for video in videos_to_download]
 
+        successful = 0
+
         # Show a tqdm progress bar.
         kwargs = {
             'total': len(futures),
@@ -38,7 +40,11 @@ def fetch(fps, max_threads, limit_count, input_csv, output_dir):
             'leave': True
         }
         for f in tqdm(concurrent.futures.as_completed(futures), **kwargs):
-            pass
+            status, _ = f.result()
+            if status:
+                successful += 1
+
+        print("Completed: %d out of %d videos downloaded successfully." % (successful, len(futures)))
 
 if __name__ == "__main__":
     fetch(prog_name="python -m dsbfetch")
