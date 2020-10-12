@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import csv
 import numpy as np
 from .video import Video
@@ -16,7 +17,7 @@ def merge_overlapping_intervals(intervals):
     intervals.extend(tuple(x) for x in merged)
 
 def load_segments(filename):
-    videos = dict()  # video_id -> Video
+    videos = OrderedDict()  # video_id -> Video
 
     # Read the videos & segments from the CSV file.
     with open(filename, "r") as f:
@@ -38,4 +39,4 @@ def load_segments(filename):
     for video in videos.values():
         merge_overlapping_intervals(video.segments)
 
-    return videos
+    return list(videos.values())
