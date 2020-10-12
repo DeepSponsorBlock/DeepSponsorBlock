@@ -29,23 +29,38 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, input_csv, out
         videos_to_download = videos_to_download[:limit_count]
 
     # Now concurrently fetch them.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = {executor.submit(download, video) : video for video in videos_to_download}
+    if max_threads > 1:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+            futures = {executor.submit(download, video) : video for video in videos_to_download}
 
+            unsuccessful = []
+
+            # Show a tqdm progress bar.
+            kwargs = {
+                'total': len(futures),
+                'unit': 'video',
+                'leave': True
+            }
+            for f in tqdm(concurrent.futures.as_completed(futures.keys()), **kwargs):
+                status, _ = f.result()
+                if not status:
+                    unsuccessful.append(futures[f].video_id)
+
+            print("Completed: %d out of %d videos had errors." % (len(unsuccessful), len(futures)))
+            print("Videos with errors: " + ", ".join(unsuccessful))
+    else:
         unsuccessful = []
 
-        # Show a tqdm progress bar.
         kwargs = {
-            'total': len(futures),
+            'total': len(videos_to_download),
             'unit': 'video',
             'leave': True
         }
-        for f in tqdm(concurrent.futures.as_completed(futures.keys()), **kwargs):
-            status, _ = f.result()
+        for v, (status, _) in tqdm(((v, download(v)) for v in videos_to_download), **kwargs):
             if not status:
-                unsuccessful.append(futures[f].video_id)
+                unsuccessful.append(v.video_id)
 
-        print("Completed: %d out of %d videos had errors." % (len(unsuccessful), len(futures)))
+        print("Completed: %d out of %d videos had errors." % (len(unsuccessful), len(videos_to_download)))
         print("Videos with errors: " + ", ".join(unsuccessful))
 
 if __name__ == "__main__":
