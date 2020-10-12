@@ -12,13 +12,14 @@ from .segments import load_segments
 @click.option('--max-threads', default=20, help='Number of threads to run on.', type=int)
 @click.option('--start-index', default=0, help='Index of the video to start with.', type=int)
 @click.option('--limit-count', default=None, help='Maximum number of videos to download.', type=int)
+@click.option('--log-ffmpeg', default=False, help='Log the output of ffmpeg.', is_flag=True)
 @click.argument('input_csv', type=click.Path(exists=True, readable=True))
 @click.argument('output_dir', type=click.Path(dir_okay=True, file_okay=False, writable=True))
-def fetch(fps, max_threads, start_index, limit_count, input_csv, output_dir):
+def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, input_csv, output_dir):
     output_path = pathlib.Path(output_dir)
     # Helper function to run on each thread.
     def download(video):
-        return video.download(output_path, fps)
+        return video.download(output_path, fps, log_ffmpeg)
 
     # Load the segments.
     videos_to_download = load_segments(input_csv)[start_index:]

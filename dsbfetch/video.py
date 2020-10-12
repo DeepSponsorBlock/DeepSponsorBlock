@@ -5,6 +5,7 @@ import ffmpeg
 import pafy
 
 INDICATOR_FILENAME = "completed"
+STDERR_FILENAME = "stderr.log"
 DEFAULT_RESOLUTION = (256, 144)
 DEFAULT_EXTENSION = "mp4"
 
@@ -13,6 +14,12 @@ class Video:
         self.video_id = video_id
         self.segments = segments
         self._pafy_obj = None
+
+    def __str__(self):
+        return self.video_id
+
+    def __repr__(self):
+        return "Video %s" % self.video_id
 
     @property
     def pafy_obj(self):
@@ -34,7 +41,7 @@ class Video:
     def get_indicator_file_path(self, root_path: pathlib.Path) -> pathlib.Path:
         return self.get_video_directory(root_path) / INDICATOR_FILENAME
 
-    def download(self, root_path, fps):
+    def download(self, root_path, fps, log_ffmpeg):
         try:
             indicator_file = self.get_indicator_file_path(root_path)
             if indicator_file.exists():
@@ -53,12 +60,16 @@ class Video:
             # Start downloading from scratch.
             video_directory.mkdir(parents=True)
             out_filename = str((video_directory / "%d.jpg").absolute())
-            (ffmpeg
+            _, stderr = (ffmpeg
               .input(stream_url)
               .filter('fps', fps='%.4f' % fps)
               .output(out_filename, **{'qscale:v': 2})
               .run(quiet=True))
 
+            # Log errors.
+            if log_ffmpeg:
+                with open(video_directory / STDERR_FILENAME, 'w') as stderr_file:
+                    stderr_file.write(str(stderr))
 
             # Go through the files and label them.
             for file in video_directory.glob("*.jpg"):
