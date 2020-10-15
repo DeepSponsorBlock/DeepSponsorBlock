@@ -56,8 +56,8 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, shuffle, input
             if not f.result():
                 filtered_videos.append(futures[f])
 
-    videos_to_download = prefilter_count
-    postfilter_count = len(filtered_videos)
+    videos_to_download = filtered_videos
+    postfilter_count = len(videos_to_download)
     print("%d/%d videos already downloaded. %d remaining." %
           (prefilter_count - postfilter_count, prefilter_count, postfilter_count))
 
