@@ -34,10 +34,16 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, shuffle, input
     if limit_count is not None:
         videos_to_download = videos_to_download[:limit_count]
 
-    # Sort the videos by whether or not they are already downloaded.
-    videos_to_download.sort(key=lambda x: int(x.is_already_downloaded(output_path)), reverse=True)
+    # Filter the videos by whether or not they are already downloaded.
+    print("Checking already downloaded videos.")
+    prefilter_count = len(videos_to_download)
+    videos_to_download = [x for x in tqdm(videos_to_download) if x.is_already_downloaded(output_path)]
+    postfilter_count = len(videos_to_download)
+    print("%d/%d videos already downloaded. %d remaining." %
+          (prefilter_count - postfilter_count, prefilter_count, postfilter_count))
 
     # Now concurrently fetch them.
+    print("\nStarting download.")
     if max_threads > 1:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = {executor.submit(download, video) : video for video in videos_to_download}
