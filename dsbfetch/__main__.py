@@ -35,7 +35,7 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, shuffle, input
         videos_to_download = videos_to_download[:limit_count]
 
     # Sort the videos by whether or not they are already downloaded.
-    videos_to_download.sort(key=lambda x: int(x.is_already_downloaded(output_dir)), reverse=True)
+    videos_to_download.sort(key=lambda x: int(x.is_already_downloaded(output_path)), reverse=True)
 
     # Now concurrently fetch them.
     if max_threads > 1:
