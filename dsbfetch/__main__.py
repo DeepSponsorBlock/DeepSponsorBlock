@@ -23,6 +23,9 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, shuffle, input
     def download(video):
         return video.download(output_path, fps, log_ffmpeg)
 
+    def check(video):
+        return video.is_already_downloaded(output_path)
+
     # Load the segments.
     videos_to_download = load_segments(input_csv)[start_index:]
 
@@ -37,8 +40,24 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, shuffle, input
     # Filter the videos by whether or not they are already downloaded.
     print("Checking already downloaded videos.")
     prefilter_count = len(videos_to_download)
-    videos_to_download = [x for x in tqdm(videos_to_download) if x.is_already_downloaded(output_path)]
-    postfilter_count = len(videos_to_download)
+    filtered_videos = []
+
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_threads) as executor:
+        futures = {executor.submit(check, video): video for video in videos_to_download}
+
+        # Show a tqdm progress bar.
+        kwargs = {
+            'total': len(futures),
+            'unit': 'video',
+            'leave': True
+        }
+        for f in tqdm(concurrent.futures.as_completed(futures.keys()), **kwargs):
+            if not f.result():
+                filtered_videos.append(futures[f])
+
+    videos_to_download = prefilter_count
+    postfilter_count = len(filtered_videos)
     print("%d/%d videos already downloaded. %d remaining." %
           (prefilter_count - postfilter_count, prefilter_count, postfilter_count))
 
