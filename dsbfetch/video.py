@@ -41,10 +41,12 @@ class Video:
     def get_indicator_file_path(self, root_path: pathlib.Path) -> pathlib.Path:
         return self.get_video_directory(root_path) / INDICATOR_FILENAME
 
+    def is_already_downloaded(self, root_path: pathlib.Path) -> bool:
+        return self.get_indicator_file_path(root_path).exists()
+
     def download(self, root_path, fps, log_ffmpeg):
         try:
-            indicator_file = self.get_indicator_file_path(root_path)
-            if indicator_file.exists():
+            if self.is_already_downloaded(root_path):
                 return True, None
 
             video_directory = self.get_video_directory(root_path)
@@ -84,7 +86,7 @@ class Video:
                 file.rename(file.with_name("%s-%d.jpg" % (file.stem, int(is_sponsored))))
 
             # Save the finished indicator file.
-            indicator_file.touch()
+            self.get_indicator_file_path(root_path).touch()
 
             return True, None
         except BaseException as e:

@@ -1,7 +1,8 @@
-import click
 import pathlib
 import concurrent.futures
+import random
 
+import click
 from tqdm import tqdm
 
 from .segments import load_segments
@@ -13,9 +14,10 @@ from .segments import load_segments
 @click.option('--start-index', default=0, help='Index of the video to start with.', type=int)
 @click.option('--limit-count', default=None, help='Maximum number of videos to download.', type=int)
 @click.option('--log-ffmpeg', default=False, help='Log the output of ffmpeg.', is_flag=True)
+@click.option('--shuffle', default=False, help='Shuffle the video order instead of using the database order.', is_flag=True)
 @click.argument('input_csv', type=click.Path(exists=True, readable=True))
 @click.argument('output_dir', type=click.Path(dir_okay=True, file_okay=False, writable=True))
-def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, input_csv, output_dir):
+def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, shuffle, input_csv, output_dir):
     output_path = pathlib.Path(output_dir)
     # Helper function to run on each thread.
     def download(video):
@@ -24,9 +26,16 @@ def fetch(fps, max_threads, start_index, limit_count, log_ffmpeg, input_csv, out
     # Load the segments.
     videos_to_download = load_segments(input_csv)[start_index:]
 
+    # Shuffle if needed.
+    if shuffle:
+        random.shuffle(videos_to_download)
+
     # Limit the number of videos if needed.
     if limit_count is not None:
         videos_to_download = videos_to_download[:limit_count]
+
+    # Sort the videos by whether or not they are already downloaded.
+    videos_to_download.sort(key=lambda x: int(x.is_already_downloaded()), reverse=True)
 
     # Now concurrently fetch them.
     if max_threads > 1:
