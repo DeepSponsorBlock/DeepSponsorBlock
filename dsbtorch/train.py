@@ -1,5 +1,9 @@
-# Training function for DeepSponsorBlock
+# Training for DeepSponsorBlock
 # --------------------------------------
+import numpy as np
+import torch.nn as nn
+import skimage
+import sklearn.metrics as metrics
 
 def train(model, train_data, dev_data, output_path, minibatch_size=32, n_epochs=10, lr=0.001):
 	"""
@@ -15,16 +19,16 @@ def train(model, train_data, dev_data, output_path, minibatch_size=32, n_epochs=
 
 	@return
 	"""
-	best_dev_acc = 0
+	best_dev_f_score = 0
 
 	optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_func = nn.BCELoss()
 
     for epoch in range(n_epochs):
         print("Epoch {:} out of {:}".format(epoch + 1, n_epochs))
-        dev_acc = train_for_epoch(model, train_data, dev_data, optimizer, loss_func, batch_size)
-        if dev_acc > best_dev_acc:
-            best_dev_acc = dev_acc
+        dev_f_score = train_for_epoch(model, train_data, dev_data, optimizer, loss_func, batch_size)
+        if dev_f_score > best_dev_f_score:
+            best_dev_f_score = dev_f_score
             print("New best dev accuracy! Saving model.")
             torch.save(model.state_dict(), output_path)
         print("")
@@ -40,12 +44,10 @@ def train_for_epoch(model, train_data, dev_data, optimizer, loss_fn, minibatch_s
 	loss_meter = AverageMeter()
 
 	with tqdm(total=(n_minibatches)) as prog:
-		# How do we generate minibatches?
+		# TODO: How do we iterate over minibatches?
         for i, (train_x, train_y) in enumerate(minibatches(train_data, batch_size)):
             optimizer.zero_grad()   # remove any baggage in the optimizer
             loss = 0. # store loss for this batch here
-            train_x = torch.from_numpy(train_x).long()
-            train_y = torch.from_numpy(train_y.nonzero()[1]).long()
 
             output = model(train_x)
             loss = loss_fn(output, train_y)
@@ -60,6 +62,18 @@ def train_for_epoch(model, train_data, dev_data, optimizer, loss_fn, minibatch_s
 
     print("Evaluating on dev set",)
     model.eval()
-    dev_acc = compute_accuracy(predict(dev_data))  # TODO: Implement these!
-    print("- dev accuracy: {:.2f}".format(dev_acc * 100.0))
-    return dev_acc
+    preds = model(dev_data)
+    dev_labels = None  # TODO: How to get labels?
+    dev_f_score = compute_weighted_f1(preds, dev_labels)
+    print("- dev weighted F1: {:.2f}".format(dev_f_score * 100.0))
+    return dev_f_score
+
+def compute_f_score(preds, labels, beta2=0.25):
+	"""
+	Computes the F-beta score for the given set of predictions
+	"""
+	preds = preds > 0.5
+	precision = metrics.precision_score(labels, preds)
+	recall = metrics.recall_score(labels, preds)
+	f_score = (1 + beta2) * (precision * recall) / ((beta2 * precision) + recall)
+	return f_score
