@@ -87,22 +87,29 @@ def _get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
     return files[start_index_in_directory:end_index_in_directory]
 
 class VideoSlidingWindowDataset(torch.utils.data.Dataset):
-    def __init__(self, scanned_dataset: ScannedDataset):
+    def __init__(self, scanned_dataset: ScannedDataset, transform=None):
         self.sd: ScannedDataset = scanned_dataset
+        self.transform = transform
 
     def __len__(self):
         return self.sd.n_indices
 
     def __getitem__(self, index):
         paths = _get_paths(self.sd, index)
-        images = np.array([_read_image(f) for f in paths])
+        image_list = [_read_image(f) for f in paths]
+
+        if self.transform:
+            image_list = [self.transform(x) for x in image_list]
+
+        images = np.array(image_list)
         labels = np.array([_get_file_label(f) for f in paths])
         return {"frames": images, "sponsored": labels}
 
 
 class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
-    def __init__(self, scanned_dataset: ScannedDataset):
+    def __init__(self, scanned_dataset: ScannedDataset, transform=None):
         self.sd: ScannedDataset = scanned_dataset
+        self.transform = transform
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -133,7 +140,12 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # The entire sliding window needs to be computed from scratch
                 # if we have no prior window or the current index corresponds to
                 # the starting index of a new directory.
-                last_images = np.array([_read_image(f) for f in paths])
+                image_list = [_read_image(f) for f in paths]
+
+                if self.transform:
+                    image_list = [self.transform(x) for x in image_list]
+
+                last_images = np.array(image_list)
                 last_labels = np.array([_get_file_label(f) for f in paths])
             else:
                 # If we're just sliding the window by one in the same directory
@@ -141,6 +153,10 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # as the last item.
                 new_path = paths[-1]
                 new_image = _read_image(new_path)
+
+                if self.transform:
+                    new_image = self.transform(new_image)
+
                 last_images = np.concatenate(
                     [last_images[1:], [new_image]])
                 new_label = _get_file_label(new_path)
