@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 
 downloads/
+
+# Sample data for development
+sampledata/
