@@ -101,9 +101,9 @@ class VideoSlidingWindowDataset(torch.utils.data.Dataset):
         if self.transform:
             image_list = [self.transform(x) for x in image_list]
 
-        images = np.array(image_list)
-        labels = np.array([_get_file_label(f) for f in paths])
-        return {"frames": images, "sponsored": labels}
+        images = torch.stack(image_list)
+        labels = torch.tensor([_get_file_label(f) for f in paths])
+        return (images, labels)
 
 
 class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
@@ -145,8 +145,8 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 if self.transform:
                     image_list = [self.transform(x) for x in image_list]
 
-                last_images = np.array(image_list)
-                last_labels = np.array([_get_file_label(f) for f in paths])
+                last_images = torch.stack(image_list)
+                last_labels = torch.tensor([_get_file_label(f) for f in paths])
             else:
                 # If we're just sliding the window by one in the same directory
                 # then we can just drop the first item and append the new frame
@@ -157,12 +157,12 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 if self.transform:
                     new_image = self.transform(new_image)
 
-                last_images = np.concatenate(
+                last_images = torch.cat(
                     [last_images[1:], [new_image]])
                 new_label = _get_file_label(new_path)
-                last_labels = np.concatenate(
+                last_labels = torch.cat(
                     [last_labels[1:], [new_label]])
 
             # Yield and move to the next window.
-            yield {"frames": last_images, "sponsored": last_labels}
+            yield (last_images, last_labels)
             i += 1
