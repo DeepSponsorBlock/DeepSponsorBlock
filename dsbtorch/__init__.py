@@ -1,1 +1,1 @@
-from .datasets import scan_dataset, ScannedDataset, VideoSlidingWindowDataset, IterableVideoSlidingWindowDataset
+from .datasets import scan_dataset, get_paths, ScannedDataset, VideoSlidingWindowDataset, IterableVideoSlidingWindowDataset
