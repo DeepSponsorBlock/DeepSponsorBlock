@@ -7,13 +7,14 @@ from typing import List, Union
 import numpy as np
 import skimage.io as io
 import torch
+from torchvision import transforms
 from tqdm import tqdm
 
 
 ScannedDataset = namedtuple(
     "ScannedDataset",
     ["root_dir", "window_size", "n_indices", "cumulative_indices",
-     "cumulative_dirs"])
+     "cumulative_dirs", "skip_every_n_pos", "skip_every_n_neg"])
 
 def _read_image(f: pathlib.Path) -> np.ndarray:
     return io.imread(str(f))
@@ -23,7 +24,9 @@ def _get_file_label(f: pathlib.Path) -> int:
     return int(f.stem.split("-")[1])
 
 def scan_dataset(root_path: Union[pathlib.Path, str],
-                 window_size: int) -> ScannedDataset:
+                 window_size: int,
+                 skip_every_n_pos: int = 1,
+                 skip_every_n_neg: int = 1) -> ScannedDataset:
     """
     Scans a directory for a DeepSponsorBlock dataset, formatted in the
     root_path/{video_id}/{frame_index}-{label}.jpg format, assuming that the
@@ -31,6 +34,11 @@ def scan_dataset(root_path: Union[pathlib.Path, str],
     containing window_size frames.
 
     :param root_path: Path of the dataset root directory.
+    :param window_size: Size of the sliding window to iterate over the dataset.
+    :param skip_every_n_pos: The number of frames between every two positive
+        labeled frames. 1 returns every frame.
+    :param skip_every_n_neg: The number of frames between every two negative
+        labeled frames. 1 returns every frame.
     :param window_size: Size of the sliding window to iterate over the dataset.
     :return: ScannedDataset object for use in VideoSlidingWindowDataset or
         IterableVideoSlidingWindowDataset
@@ -49,7 +57,11 @@ def scan_dataset(root_path: Union[pathlib.Path, str],
     cumulative_index = 0
     for directory in tqdm(list(root_path.iterdir())):
         if directory.is_dir():
-            n_files = len(list(directory.glob("*.jpg")))
+            positive_files = len(list(directory.glob("*-1.jpg")))
+            negative_files = len(list(directory.glob("*-0.jpg")))
+            n_files = (
+                    (positive_files // skip_every_n_pos) +
+                    (negative_files // skip_every_n_neg))
             n_idx = n_files - window_size + 1
 
             cumulative_indices.append(cumulative_index)
@@ -58,9 +70,32 @@ def scan_dataset(root_path: Union[pathlib.Path, str],
 
     return ScannedDataset(
         root_path, window_size, cumulative_index, cumulative_indices,
-        cumulative_dirs)
+        cumulative_dirs, skip_every_n_pos, skip_every_n_neg)
 
-def _get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
+def _get_files(sd: ScannedDataset,
+               directory: pathlib.Path) -> List[pathlib.Path]:
+    # Get the images inside this directory.
+    files = list(directory.glob("*.jpg"))
+    stems = [f.stem.split("-") for f in files]
+    file_info = [
+        (int(stems[i][0]), int(stems[i][1]), files[i])
+        for i in range(len(files))]
+    file_info.sort(key=lambda f: f[0]) # Sort by timestamp
+
+    if sd.skip_every_n_neg > 1 or sd.skip_every_n_pos > 1:
+        # Do the skipping now.
+        positive_files = [f for f in file_info if f[1] == 1]
+        positive_files = positive_files[::sd.skip_every_n_pos]
+
+        negative_files = [f for f in file_info if f[1] == 0]
+        negative_files = negative_files[::sd.skip_every_n_neg]
+
+        file_info = positive_files + negative_files
+        file_info.sort(key=lambda f: f[0])  # Sort by timestamp
+
+    return [f[2] for f in file_info]
+
+def get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
     """
     Gets the file paths of the images corresponding to the frames that the
     sliding window would contain if starting at the given image index.
@@ -75,9 +110,7 @@ def _get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
     directory = sd.cumulative_dirs[directory_index]
     directory_start_index = sd.cumulative_indices[directory_index]
 
-    # Get the images inside this directory.
-    files = list(directory.glob("*.jpg"))
-    files.sort(key=lambda f: int(f.stem.split("-")[0])) # Integer part before -
+    files = _get_files(sd, directory)
 
     # Compute the per-directory index of the global indices.
     start_index_in_directory = index - directory_start_index
@@ -87,7 +120,8 @@ def _get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
     return files[start_index_in_directory:end_index_in_directory]
 
 class VideoSlidingWindowDataset(torch.utils.data.Dataset):
-    def __init__(self, scanned_dataset: ScannedDataset, transform=None):
+    def __init__(self, scanned_dataset: ScannedDataset,
+                 transform=transforms.ToTensor()):
         self.sd: ScannedDataset = scanned_dataset
         self.transform = transform
 
@@ -95,11 +129,8 @@ class VideoSlidingWindowDataset(torch.utils.data.Dataset):
         return self.sd.n_indices
 
     def __getitem__(self, index):
-        paths = _get_paths(self.sd, index)
-        image_list = [_read_image(f) for f in paths]
-
-        if self.transform:
-            image_list = [self.transform(x) for x in image_list]
+        paths = get_paths(self.sd, index)
+        image_list = [self.transform(_read_image(f)) for f in paths]
 
         images = torch.stack(image_list)
         labels = torch.tensor([_get_file_label(f) for f in paths])
@@ -107,7 +138,8 @@ class VideoSlidingWindowDataset(torch.utils.data.Dataset):
 
 
 class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
-    def __init__(self, scanned_dataset: ScannedDataset, transform=None):
+    def __init__(self, scanned_dataset: ScannedDataset,
+                 transform=transforms.ToTensor()):
         self.sd: ScannedDataset = scanned_dataset
         self.transform = transform
 
@@ -134,16 +166,13 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
             directory_index = bisect.bisect_right(self.sd.cumulative_indices, i) - 1
             directory_start_idx = self.sd.cumulative_indices[directory_index]
 
-            paths = _get_paths(self.sd, i)
+            paths = get_paths(self.sd, i)
 
             if i == directory_start_idx or i == iter_start:
                 # The entire sliding window needs to be computed from scratch
                 # if we have no prior window or the current index corresponds to
                 # the starting index of a new directory.
-                image_list = [_read_image(f) for f in paths]
-
-                if self.transform:
-                    image_list = [self.transform(x) for x in image_list]
+                image_list = [self.transform(_read_image(f)) for f in paths]
 
                 last_images = torch.stack(image_list)
                 last_labels = torch.tensor([_get_file_label(f) for f in paths])
@@ -152,10 +181,7 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # then we can just drop the first item and append the new frame
                 # as the last item.
                 new_path = paths[-1]
-                new_image = _read_image(new_path)
-
-                if self.transform:
-                    new_image = self.transform(new_image)
+                new_image = self.transform(_read_image(new_path))
 
                 last_images = torch.cat(
                     [last_images[1:], [new_image]])
