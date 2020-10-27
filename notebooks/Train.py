@@ -74,7 +74,7 @@ def running_totals(preds, labels, tp, tn, fp, fn):
 # In[39]:
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.25, print_every_n=20):
+def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=25, beta2=0.25, print_every_n=0):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -127,7 +127,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.2
                 running_loss += loss.item() * inputs.size(0)
                 tp, tn, fp, fn = running_totals(preds, labels.data, tp, tn, fp, fn)
                 
-                if i % print_every_n == 0 and i > 0:
+                if print_every_n > 0 and i % print_every_n == 0 and i > 0:
                     print("Batch number ", i)
                     print("Statistics: ", tp, tn, fp, fn)
                     print("Time since last update: ", time.time() - batch_start)
@@ -144,7 +144,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.2
                 phase, epoch_loss, epoch_fscore))
 
             # deep copy the model
-            if phase == 'val' and epoch_fscore > best_fscore:
+            if phase == 'dev' and epoch_fscore > best_fscore:
                 best_fscore = epoch_fscore
                 best_model_wts = copy.deepcopy(model.state_dict())
 
@@ -153,8 +153,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.2
         time_elapsed // 60, time_elapsed % 60))
     print('Best val F score: {:4f}'.format(best_fscore))
 
-    # load best model weights
+    # Save and load best model weights
     model.load_state_dict(best_model_wts)
+    torch.save(model.state_dict(), output_path)
     return model
 
 
@@ -184,7 +185,7 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 # In[41]:
 
 
-model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs=1, print_every_n=10)
+model = train_model(model, criterion, optimizer, exp_lr_scheduler, '../results/baseline.weights', num_epochs=25)
 
 
 # In[ ]:
