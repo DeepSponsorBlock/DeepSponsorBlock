@@ -1,20 +1,21 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-from __future__ import print_function, division
+# In[32]:
 
+
+from __future__ import print_function, division
 import sys
 sys.path.append("../")
 
 
-# In[2]:
+# In[33]:
 
 
 from dsbtorch import scan_dataset, IterableVideoSlidingWindowDataset, VideoSlidingWindowDataset
 
 
-# In[3]:
+# In[34]:
 
 
 import torch
@@ -32,13 +33,13 @@ import copy
 plt.ion()   # interactive mode
 
 
-# In[4]:
+# In[35]:
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-# In[5]:
+# In[36]:
 
 
 t = transforms.Compose([
@@ -47,20 +48,19 @@ t = transforms.Compose([
 ])
 
 
-# In[50]:
+# In[37]:
 
 
-# data_dir = "/home/ubuntu/data/dataset/"
+data_dir = "/home/ubuntu/data/dataset/"
 # data_dir = "/home/ubuntu/data/toy_dataset/"
-data_dir = "/home/ubuntu/CS230/dataset/"
 dataset_names = ['train', 'dev', 'test']
-scanned_datasets = {x: scan_dataset(os.path.join(data_dir, x), 1) for x in dataset_names}
+scanned_datasets = {x: scan_dataset(os.path.join(data_dir, x), 1, 1, 10) for x in dataset_names}
 datasets = {x: VideoSlidingWindowDataset(scanned_datasets[x], t) for x in dataset_names}
-dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=128, num_workers=4) for x in dataset_names}
+dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=128, num_workers=6) for x in dataset_names}
 dataset_sizes = {x: len(datasets[x]) for x in dataset_names}
 
 
-# In[18]:
+# In[38]:
 
 
 def running_totals(preds, labels, tp, tn, fp, fn):
@@ -71,10 +71,10 @@ def running_totals(preds, labels, tp, tn, fp, fn):
     return (tp, tn, fp, fn)
 
 
-# In[52]:
+# In[39]:
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.25):
+def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.25, print_every_n=20):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -88,14 +88,20 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.2
         for phase in ['train', 'dev']:
             if phase == 'train':
                 model.train()  # Set model to training mode
+                print('Training for one epoch.')
+                print('-' * 8)
             else:
                 model.eval()   # Set model to evaluate mode
+                print('Evaluating model.')
+                print('-' * 8)
 
             running_loss = 0.0
             tp, tn, fp, fn = 0, 0, 0, 0
 
+            i = 0
+            batch_start = time.time()
             # Iterate over data.
-            for inputs, labels in dataloaders[phase]:                
+            for inputs, labels in dataloaders[phase]:                        
                 inputs = torch.reshape(inputs, (-1, 3, 144, 256))
                 inputs = inputs.to(device)
                 labels = torch.reshape(labels, (-1, ))
@@ -121,13 +127,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.2
                 running_loss += loss.item() * inputs.size(0)
                 tp, tn, fp, fn = running_totals(preds, labels.data, tp, tn, fp, fn)
                 
+                if i % print_every_n == 0 and i > 0:
+                    print("Batch number ", i)
+                    print("Statistics: ", tp, tn, fp, fn)
+                    print("Time since last update: ", time.time() - batch_start)
+                    batch_start = time.time()
+                i += 1
+                
             if phase == 'train':
                 scheduler.step()
 
             epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_precision = tp / (tp + fp)
-            epoch_recall = tp / (tp + fn)
-            epoch_fscore = (1 + beta2) * epoch_precision * epoch_recall / (beta2 * epoch_precision + epoch_recall)
+            epoch_fscore = (1 + beta2) * tp / ((1 + beta2) * tp + beta2 * fn + fp)
 
             print('{} Loss: {:.4f} F0.5: {:.4f}'.format(
                 phase, epoch_loss, epoch_fscore))
@@ -147,7 +158,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, beta2=0.2
     return model
 
 
-# In[53]:
+# In[40]:
 
 
 model = models.resnet18(pretrained=True)
@@ -170,10 +181,10 @@ optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 
-# In[54]:
+# In[41]:
 
 
-model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs=1)
+model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs=1, print_every_n=10)
 
 
 # In[ ]:
