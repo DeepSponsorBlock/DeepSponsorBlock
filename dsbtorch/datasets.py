@@ -2,7 +2,7 @@ import bisect
 from collections import namedtuple
 import math
 import pathlib
-from typing import List, Union
+from typing import List, Union, Any
 
 import accimage
 from PIL import Image
