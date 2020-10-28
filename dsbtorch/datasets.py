@@ -57,43 +57,18 @@ def scan_dataset(root_path: Union[pathlib.Path, str],
     cumulative_index = 0
     for directory in tqdm(list(root_path.iterdir())):
         if directory.is_dir():
-            positive_files = len(list(directory.glob("*-1.jpg")))
-            negative_files = len(list(directory.glob("*-0.jpg")))
-            n_files = (
-                    (positive_files // skip_every_n_pos) +
-                    (negative_files // skip_every_n_neg))
-            n_idx = n_files - window_size + 1
+            positive_files = list(directory.glob("*-1.jpg"))[::skip_every_n_pos]
+            negative_files = list(directory.glob("*-0.jpg"))[::skip_every_n_neg]
+            files = sorted(positive_files + negative_files, key=lambda x: int(x.stem.split("-")[0]))
+            n_idx = len(files) - window_size + 1
 
             cumulative_indices.append(cumulative_index)
-            cumulative_dirs.append(directory)
+            cumulative_dirs.append(files)
             cumulative_index += n_idx
 
     return ScannedDataset(
         root_path, window_size, cumulative_index, cumulative_indices,
         cumulative_dirs, skip_every_n_pos, skip_every_n_neg)
-
-def _get_files(sd: ScannedDataset,
-               directory: pathlib.Path) -> List[pathlib.Path]:
-    # Get the images inside this directory.
-    files = list(directory.glob("*.jpg"))
-    stems = [f.stem.split("-") for f in files]
-    file_info = [
-        (int(stems[i][0]), int(stems[i][1]), files[i])
-        for i in range(len(files))]
-    file_info.sort(key=lambda f: f[0]) # Sort by timestamp
-
-    if sd.skip_every_n_neg > 1 or sd.skip_every_n_pos > 1:
-        # Do the skipping now.
-        positive_files = [f for f in file_info if f[1] == 1]
-        positive_files = positive_files[::sd.skip_every_n_pos]
-
-        negative_files = [f for f in file_info if f[1] == 0]
-        negative_files = negative_files[::sd.skip_every_n_neg]
-
-        file_info = positive_files + negative_files
-        file_info.sort(key=lambda f: f[0])  # Sort by timestamp
-
-    return [f[2] for f in file_info]
 
 def get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
     """
@@ -110,14 +85,12 @@ def get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
     directory = sd.cumulative_dirs[directory_index]
     directory_start_index = sd.cumulative_indices[directory_index]
 
-    files = _get_files(sd, directory)
-
     # Compute the per-directory index of the global indices.
     start_index_in_directory = index - directory_start_index
     end_index_in_directory = start_index_in_directory + sd.window_size
 
     # Return the files at the given in-directory indices.
-    return files[start_index_in_directory:end_index_in_directory]
+    return directory[start_index_in_directory:end_index_in_directory]
 
 class VideoSlidingWindowDataset(torch.utils.data.Dataset):
     def __init__(self, scanned_dataset: ScannedDataset,
