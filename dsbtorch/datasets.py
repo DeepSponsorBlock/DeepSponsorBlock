@@ -23,7 +23,6 @@ def pil_loader(path: str) -> Image.Image:
         return img.convert('RGB')
 
 def accimage_loader(path: str) -> Any:
-    import accimage
     try:
         return accimage.Image(path)
     except IOError:
@@ -113,7 +112,7 @@ class VideoSlidingWindowDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         paths = get_paths(self.sd, index)
-        image_list = [self.transform(accimage_loader(f)) for f in paths]
+        image_list = [self.transform(accimage_loader(str(f))) for f in paths]
 
         images = torch.stack(image_list)
         labels = torch.tensor([_get_file_label(f) for f in paths])
@@ -155,7 +154,7 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # The entire sliding window needs to be computed from scratch
                 # if we have no prior window or the current index corresponds to
                 # the starting index of a new directory.
-                image_list = [self.transform(accimage_loader(f)) for f in paths]
+                image_list = [self.transform(accimage_loader(str(f))) for f in paths]
 
                 last_images = torch.stack(image_list)
                 last_labels = torch.tensor([_get_file_label(f) for f in paths])
@@ -164,7 +163,7 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # then we can just drop the first item and append the new frame
                 # as the last item.
                 new_path = paths[-1]
-                new_image = self.transform(accimage_loader(new_path))
+                new_image = self.transform(accimage_loader(str(new_path)))
 
                 last_images = torch.cat(
                     [last_images[1:], [new_image]])
