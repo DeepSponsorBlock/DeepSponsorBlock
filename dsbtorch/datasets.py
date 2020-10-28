@@ -4,9 +4,11 @@ import math
 import pathlib
 from typing import List, Union
 
+import accimage
+from PIL import Image
 import numpy as np
 import torch
-from torchvision import transforms, datasets
+from torchvision import transforms
 from tqdm import tqdm
 
 
@@ -14,6 +16,18 @@ ScannedDataset = namedtuple(
     "ScannedDataset",
     ["root_dir", "window_size", "n_indices", "cumulative_indices",
      "cumulative_dirs", "skip_every_n_pos", "skip_every_n_neg"])
+
+def pil_loader(path: str) -> Image.Image:
+    with open(path, 'rb') as f:
+        img = Image.open(f)
+        return img.convert('RGB')
+
+def accimage_loader(path: str) -> Any:
+    import accimage
+    try:
+        return accimage.Image(path)
+    except IOError:
+        return pil_loader(path)
 
 def _get_file_label(f: pathlib.Path) -> int:
     """Gets the image label from the file path."""
@@ -99,7 +113,7 @@ class VideoSlidingWindowDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         paths = get_paths(self.sd, index)
-        image_list = [self.transform(datasets.default_loader(f)) for f in paths]
+        image_list = [self.transform(accimage_loader(f)) for f in paths]
 
         images = torch.stack(image_list)
         labels = torch.tensor([_get_file_label(f) for f in paths])
@@ -141,7 +155,7 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # The entire sliding window needs to be computed from scratch
                 # if we have no prior window or the current index corresponds to
                 # the starting index of a new directory.
-                image_list = [self.transform(datasets.default_loader(f)) for f in paths]
+                image_list = [self.transform(accimage_loader(f)) for f in paths]
 
                 last_images = torch.stack(image_list)
                 last_labels = torch.tensor([_get_file_label(f) for f in paths])
@@ -150,7 +164,7 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
                 # then we can just drop the first item and append the new frame
                 # as the last item.
                 new_path = paths[-1]
-                new_image = self.transform(datasets.default_loader(new_path))
+                new_image = self.transform(accimage_loader(new_path))
 
                 last_images = torch.cat(
                     [last_images[1:], [new_image]])
