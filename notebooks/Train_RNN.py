@@ -32,24 +32,13 @@ import copy
 
 plt.ion()   # interactive mode
 
-
-# In[35]:
-
 max_frames = 1200  # 20 min
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-# In[36]:
-
 
 t = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
-
-
-# In[37]:
-
 
 # data_dir = "/home/ubuntu/data/dataset/"
 # data_dir = "/home/ubuntu/data/toy_dataset/"
@@ -61,17 +50,34 @@ dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=128, num_w
 dataset_sizes = {x: len(datasets[x]) for x in dataset_names}
 
 
-def IOU(preds, labels):
-    return 0
+def convert_to_onehot(start_preds, end_preds):
+    """
+    Converts preds into a one-hot vector with 1's for sponsored frames
+    """
+    onehot_preds = np.zeros(max_frames)
 
-    # # TODO: apply for multiple sponsored segments
-    # pred_start, pred_end = preds
-    # true_start, true_end = labels
-    # if pred_start > true_end or pred_end < true_start:
-    #     return 0  # No intersection
-    # intersection = min(pred_end, true_end) - max(pred_start, true_start)
-    # union = max(pred_end, true_end) - min(pred_start, true_start)
-    # return intersection / union
+    # Transform into tuples of (timestamp, is_start)
+    start_preds = [(idx, True) for idx in start_preds]
+    end_preds = [(idx, False) for idx in end_preds]
+    timestamps = sorted(start_preds + end_preds, key=lambda t: t[0])
+
+    seg_start = 0
+    in_seg = False
+    for t, is_start in timestamps:
+        if is_start and not in_seg:
+            seg_start = t
+            in_seg = True
+        elif not is_start and in_seg:
+            onehot_preds[seg_start : t+1] = 1
+            in_seg = False
+
+    return torch.tensor(onehot_preds, dtype='torch.long')
+
+
+def IOU(preds, labels):
+    intersection = torch.count_nonzero(preds * labels)
+    union = torch.count_nonzero(preds + labels)
+    return intersection / union
 
 
 def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=25, beta2=0.25, print_every_n=0, max_frames=max_frames):
@@ -97,6 +103,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
                 print('-' * 8)
 
             running_loss = 0.0
+            total_iou = 0
 
             i = 0
             batch_start = time.time()
@@ -129,6 +136,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
                 with torch.set_grad_enabled(phase == 'train'):
                     cnn_outputs = cnn_encoder(inputs)
                     start_probs, end_probs = rnn_decoder(cnn_outputs)
+                    
                     start_preds = torch.gt(start_probs, 0.5)
                     end_preds = torch.gt(end_probs, 0.5)
                     loss = criterion(start_probs, start_labels) + criterion(end_probs, end_labels)
@@ -140,7 +148,8 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
 
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
-                total_iou += IOU((start_probs, end_probs), (start_labels, end_labels))
+                preds = convert_to_onehot(start_preds, end_preds)
+                total_iou += IOU(preds, labels)
                 
                 if print_every_n > 0 and i % print_every_n == 0 and i > 0:
                     print("Batch number ", i)
@@ -153,10 +162,10 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
                 scheduler.step()
 
             epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_iou = None
+            epoch_iou = total_iou / num_videos  # TODO: what is the total # of videos?
 
             print('{} Loss: {:.4f} F0.5: {:.4f}'.format(
-                phase, epoch_loss, epoch_fscore))
+                phase, epoch_loss, epoch_iou))
 
             # deep copy the model
             if phase == 'dev' and epoch_iou > best_iou:
@@ -166,7 +175,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-    print('Best val F score: {:4f}'.format(best_fscore))
+    print('Best val F score: {:4f}'.format(best_iou))
 
     # Save and load best model weights
     model.load_state_dict(best_model_wts)
@@ -175,7 +184,8 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
 
 
 
-encoder, decoder = ResCNNEncoder(), DecoderRNN(max_frames=max_frames)
+encoder = ResCNNEncoder()
+decoder = DecoderRNN(max_frames=max_frames)
 
 encoder = encoder.to(device)
 decoder = decoder.to(device)
@@ -188,5 +198,5 @@ optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
-model = train_model((encoder, decoder), criterion, optimizer, exp_lr_scheduler, '../results/baseline.weights', num_epochs=25)
+model = train_model((encoder, decoder), criterion, optimizer, exp_lr_scheduler, '../results/rnn.weights', num_epochs=25)
 
