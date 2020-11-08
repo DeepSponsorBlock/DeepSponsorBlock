@@ -153,7 +153,6 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
                 
                 if print_every_n > 0 and i % print_every_n == 0 and i > 0:
                     print("Batch number ", i)
-                    print("Statistics: ", tp, tn, fp, fn)
                     print("Time since last update: ", time.time() - batch_start)
                     batch_start = time.time()
                 i += 1
@@ -162,7 +161,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
                 scheduler.step()
 
             epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_iou = total_iou / num_videos  # TODO: what is the total # of videos?
+            epoch_iou = total_iou / dataset_sizes[phase]
 
             print('{} Loss: {:.4f} F0.5: {:.4f}'.format(
                 phase, epoch_loss, epoch_iou))
