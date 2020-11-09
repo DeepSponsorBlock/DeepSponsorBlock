@@ -36,9 +36,8 @@ plt.ion()   # interactive mode
 # In[35]:
 
 
-# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-device = torch.device("cuda:0")
-torchvision.set_image_backend('accimage')
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 # In[36]:
 
@@ -53,12 +52,12 @@ t = transforms.Compose([
 # In[37]:
 
 
-data_dir = "/home/ubuntu/data/dataset/"
-# data_dir = "/home/ubuntu/data/toy_dataset/"
+# data_dir = "/home/ubuntu/data/dataset/"
+data_dir = "/home/ubuntu/data/toy_dataset/"
 dataset_names = ['train', 'dev', 'test']
 scanned_datasets = {x: scan_dataset(os.path.join(data_dir, x), 1, 1, 10) for x in dataset_names}
 datasets = {x: VideoSlidingWindowDataset(scanned_datasets[x], t) for x in dataset_names}
-dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=128, num_workers=4) for x in dataset_names}
+dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=128, num_workers=6) for x in dataset_names}
 dataset_sizes = {x: len(datasets[x]) for x in dataset_names}
 
 
@@ -90,11 +89,11 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
         for phase in ['train', 'dev']:
             if phase == 'train':
                 model.train()  # Set model to training mode
-                print('Training phase.')
+                print('Training for one epoch.')
                 print('-' * 8)
             else:
                 model.eval()   # Set model to evaluate mode
-                print('Evaluation phase.')
+                print('Evaluating model.')
                 print('-' * 8)
 
             running_loss = 0.0
@@ -103,7 +102,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
             i = 0
             batch_start = time.time()
             # Iterate over data.
-            for inputs, labels in dataloaders[phase]:                        
+            for inputs, labels in dataloaders['dev']:                        
                 inputs = torch.reshape(inputs, (-1, 3, 144, 256))
                 inputs = inputs.to(device)
                 labels = torch.reshape(labels, (-1, ))
@@ -139,7 +138,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
             if phase == 'train':
                 scheduler.step()
 
-            epoch_loss = running_loss / dataset_sizes[phase]
+            epoch_loss = running_loss / dataset_sizes['dev']
             epoch_fscore = (1 + beta2) * tp / ((1 + beta2) * tp + beta2 * fn + fp)
 
             print('{} Loss: {:.4f} F0.5: {:.4f}'.format(
@@ -158,7 +157,7 @@ def train_model(model, criterion, optimizer, scheduler, output_path, num_epochs=
 
     # Save and load best model weights
     model.load_state_dict(best_model_wts)
-    torch.save(model.state_dict(), output_path)
+#     torch.save(model.state_dict(), output_path)
     return model
 
 
@@ -188,7 +187,7 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 # In[41]:
 
 
-model = train_model(model, criterion, optimizer, exp_lr_scheduler, 'home/ubuntu/data/DeepSponsorBlock/results/baseline_weights', num_epochs=25, print_every_n=1000)
+model = train_model(model, criterion, optimizer, exp_lr_scheduler, '/home/ubuntu/data/DeepSponsorBlock/results/toy_baseline_weights', num_epochs=1, print_every_n=10)
 
 
 # In[ ]:

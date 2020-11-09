@@ -132,3 +132,6 @@ downloads/
 
 # Sample data for development
 sampledata/
+results/
+notebooks/runs
+notebooks/scans
