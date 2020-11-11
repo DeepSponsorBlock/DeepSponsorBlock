@@ -29,8 +29,46 @@ class ResCNNEncoder(nn.Module):
         return torch.unsqueeze(self.resnet(x), 0)
 
 
+class ResCNN(nn.Module):
+    def __init__(self, weights_path):
+        """Load the pretrained ResNet-152 and replace top fc layer."""
+        super(ResCNN, self).__init__()
+
+        self.resnet = models.resnet50()
+        self.num_ftrs = self.resnet.fc.in_features
+        self.resnet.fc = nn.Linear(self.num_ftrs, 2)
+        self.resnet.load_state_dict(torch.load(weights_path))
+
+        self.resnet.fc = nn.Identity()
+
+        for param in self.resnet.parameters():
+            param.requires_grad = False
+        
+    def forward(self, x):
+        return self.resnet(x)
+
+
+class Embedder(nn.Module):
+    def __init__(self, in_features, fc_hidden1=512, fc_hidden2=512, drop_p=0.3, CNN_embed_dim=300):
+        super(Embedder, self).__init__()
+
+        self.fc_hidden1, self.fc_hidden2 = fc_hidden1, fc_hidden2
+        self.drop_p = drop_p
+        
+        self.fc = nn.Sequential(
+            nn.Linear(in_features, fc_hidden1),
+            nn.BatchNorm1d(fc_hidden1, momentum=0.01),
+            nn.Linear(fc_hidden1, fc_hidden2),
+            nn.BatchNorm1d(fc_hidden2, momentum=0.01),
+            nn.Linear(fc_hidden2, CNN_embed_dim),
+        )
+        
+    def forward(self, x):
+        return torch.unsqueeze(self.fc(x), 0)
+
+
 class DecoderRNN(nn.Module):
-    def __init__(self, max_frames=1200, CNN_embed_dim=300, h_RNN_layers=2, h_RNN=256, h_FC_dim=128, drop_p=0.3):
+    def __init__(self, CNN_embed_dim=300, h_RNN_layers=2, h_RNN=256, h_FC_dim=128, drop_p=0.3):
         super(DecoderRNN, self).__init__()
 
         self.RNN_input_size = CNN_embed_dim
@@ -38,7 +76,6 @@ class DecoderRNN(nn.Module):
         self.h_RNN = h_RNN                 # RNN hidden nodes
         self.h_FC_dim = h_FC_dim
         self.drop_p = drop_p
-        self.max_frames = max_frames
 
         self.start_LSTM = nn.LSTM(
             input_size=self.RNN_input_size,
