@@ -174,3 +174,29 @@ class IterableVideoSlidingWindowDataset(torch.utils.data.IterableDataset):
             # Yield and move to the next window.
             yield (last_images, last_labels)
             i += 1
+
+class PreEmbeddedDataset(torch.utils.data.Dataset):
+    def __init__(self, root_path: pathlib.Path):
+        files = sorted(root_path.iterdir())
+
+        embedding_files = [f for f in files if f.suffixes[0] == "emb"]
+        label_files = [f for f in files if f.suffixes[0] == "lbl"]
+
+        videos = list(zip(embedding_files, label_files))
+
+        # Validate that the files are correctly paired.
+        for emb_file, lbl_file in videos:
+            assert emb_file.stem.split('.')[0] == lbl_file.stem.split('.')[0]
+
+        self.videos = videos
+
+    def __len__(self):
+        return len(self.videos)
+
+    def __getitem__(self, index):
+        emb_file, lbl_file = self.videos[index]
+
+        embeddings = np.load(emb_file)
+        labels = np.load(lbl_file)
+
+        return (embeddings, labels)
