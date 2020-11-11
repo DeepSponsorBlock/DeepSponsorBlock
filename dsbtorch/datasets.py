@@ -196,7 +196,7 @@ class PreEmbeddedDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         emb_file, lbl_file = self.videos[index]
 
-        embeddings = np.load(emb_file)
-        labels = np.load(lbl_file)
+        embeddings = torch.tensor(np.load(emb_file))
+        labels = torch.tensor(np.load(lbl_file))
 
         return (embeddings, labels)
