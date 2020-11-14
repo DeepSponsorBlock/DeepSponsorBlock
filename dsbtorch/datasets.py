@@ -179,8 +179,8 @@ class PreEmbeddedDataset(torch.utils.data.Dataset):
     def __init__(self, root_path: pathlib.Path):
         files = sorted(root_path.iterdir())
 
-        embedding_files = [f for f in files if f.suffixes[0] == "emb"]
-        label_files = [f for f in files if f.suffixes[0] == "lbl"]
+        embedding_files = [f for f in files if f.suffixes[0] == ".emb"]
+        label_files = [f for f in files if f.suffixes[0] == ".lbl"]
 
         videos = list(zip(embedding_files, label_files))
 
