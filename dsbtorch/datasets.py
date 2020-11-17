@@ -4,7 +4,6 @@ import math
 import pathlib
 from typing import List, Union, Any
 
-import accimage
 from PIL import Image
 import numpy as np
 import torch
@@ -29,8 +28,9 @@ def pil_loader(path: str) -> Image.Image:
 
 def accimage_loader(path: str) -> Any:
     try:
+        import accimage
         return accimage.Image(path)
-    except IOError:
+    except:
         return pil_loader(path)
 
 def _get_file_label(f: pathlib.Path) -> int:
@@ -108,9 +108,10 @@ def get_paths(sd: ScannedDataset, index: int) -> List[pathlib.Path]:
 
 class VideoSlidingWindowDataset(torch.utils.data.Dataset):
     def __init__(self, scanned_dataset: ScannedDataset,
-                 transform=transforms.ToTensor()):
+                 transform=transforms.ToTensor(), get_labels=True):
         self.sd: ScannedDataset = scanned_dataset
         self.transform = transform
+        self.get_labels = get_labels
 
     def __len__(self):
         return self.sd.n_indices
@@ -120,6 +121,9 @@ class VideoSlidingWindowDataset(torch.utils.data.Dataset):
         image_list = [self.transform(accimage_loader(str(f))) for f in paths]
 
         images = torch.stack(image_list)
+        if not self.get_labels:
+            return images
+
         labels = torch.tensor([_get_file_label(f) for f in paths])
         return (images, labels)
 

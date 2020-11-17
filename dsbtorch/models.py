@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 
 
-def ResCNNClassifier(weights_path=None):
+def ResCNNClassifier(weights_path=None, **kwargs):
     """A two-class classifier based on the ResNet50 model, with
     pretrained weights loaded from the file (or ImageNet ResNet50 weights used
     if no weights file is provided)."""
@@ -13,17 +13,17 @@ def ResCNNClassifier(weights_path=None):
     resnet.fc = nn.Linear(num_ftrs, 2)
 
     if weights_path:
-        resnet.load_state_dict(torch.load(weights_path))
+        resnet.load_state_dict(torch.load(weights_path, **kwargs))
 
     return resnet
 
 
-def ResCNN(weights_path=None):
+def ResCNN(weights_path=None, **kwargs):
     """A ResNet50-based model that outputs the result of the last convolutional
     layer. Can be used alone to pre-encode images, or can be used in a
     Sequential module to construct an end-to-end model."""
 
-    resnet = ResCNNClassifier(weights_path)
+    resnet = ResCNNClassifier(weights_path, **kwargs)
 
     out_features = resnet.fc.in_features
     resnet.fc = nn.Identity()
@@ -67,11 +67,11 @@ class Encoder(nn.Module):
 
 
 def ResCNNEncoder(fc_hidden1=512, fc_hidden2=512, CNN_embed_dim=300,
-                  weights_path=None):
+                  weights_path=None, **kwargs):
     """A full frame-to-vector encoder produced by combining the ResCNN with
     the Encoder sequentially."""
 
-    resnet = ResCNN(weights_path)
+    resnet = ResCNN(weights_path, **kwargs)
     encoder = Encoder(resnet.fc.in_features, fc_hidden1, fc_hidden2,
                         CNN_embed_dim)
     return nn.Sequential(
@@ -139,7 +139,7 @@ class DecoderRNN(nn.Module):
 def PreprocessedEncoderDecoder(
         in_features, fc_hidden1=512, fc_hidden2=512, CNN_embed_dim=300,
         h_RNN_layers=2, h_RNN=256, h_FC_dim=128, sigmoid=True,
-        weights_path=None):
+        weights_path=None, **kwargs):
     """A module combining the encoder (converting ResCNN output to encoding) and
     the decoder (converting the encoding to the start/end labels). For use with
     preprocessed data, e.g. input data should be the output of the ResCNN on
@@ -152,6 +152,6 @@ def PreprocessedEncoderDecoder(
     model = nn.Sequential(encoder, decoder)
 
     if weights_path:
-        model.load_state_dict(torch.load(weights_path))
+        model.load_state_dict(torch.load(weights_path, **kwargs))
 
     return model

@@ -6,11 +6,11 @@ import pafy
 
 INDICATOR_FILENAME = "completed"
 STDERR_FILENAME = "stderr.log"
-DEFAULT_RESOLUTION = (256, 144)
+DEFAULT_RESOLUTION = 256
 DEFAULT_EXTENSION = "mp4"
 
 class Video:
-    def __init__(self, video_id, segments):
+    def __init__(self, video_id, segments=None):
         self.video_id = video_id
         self.segments = segments
         self._pafy_obj = None
@@ -32,7 +32,7 @@ class Video:
         video_streams = self.pafy_obj.videostreams
         chosen_stream = next(vs for vs in video_streams
                              if vs.extension == DEFAULT_EXTENSION
-                             and vs.dimensions == DEFAULT_RESOLUTION)
+                             and vs.dimensions[0] == DEFAULT_RESOLUTION)
         return chosen_stream.url
 
     def get_video_directory(self, root_path: pathlib.Path) -> pathlib.Path:
@@ -79,8 +79,10 @@ class Video:
                 timestamp = int(file.stem) / fps
 
                 # Check if the file is sponsored
-                is_sponsored = any(
-                    start <= timestamp < end for start, end in self.segments)
+                is_sponsored = False
+                if self.segments:
+                    is_sponsored = any(
+                        start <= timestamp < end for start, end in self.segments)
 
                 # Rename the file now.
                 file.rename(file.with_name("%s-%d.jpg" % (file.stem, int(is_sponsored))))
@@ -91,6 +93,3 @@ class Video:
             return True, None
         except BaseException as e:
             return False, str(e)
-
-
-# ffmpeg -ss 00:00:30 -i $(youtube-dl -f 22 --get-url "$youtube_url") -vframes 1 -q:v 2 out.jpg
