@@ -133,3 +133,5 @@ dataset/
 # Sample data for development
 notebooks/runs
 notebooks/scans
+
+.idea
