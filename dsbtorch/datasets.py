@@ -11,6 +11,11 @@ import torch
 from torchvision import transforms
 from tqdm import tqdm
 
+DEFAULT_TRANSFORM = transforms.Compose([
+    transforms.Resize((144, 256)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
 
 ScannedDataset = namedtuple(
     "ScannedDataset",
