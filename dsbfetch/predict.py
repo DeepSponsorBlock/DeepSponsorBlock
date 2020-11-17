@@ -75,7 +75,7 @@ def predict(
         start_labels, end_labels = rnn(all_encodings)
 
     start_seconds = torch.argmax(start_labels.view(-1))
-    end_seconds = torch.argmax(start_labels.view(-1))
+    end_seconds = torch.argmax(end_labels.view(-1))
 
     if end_seconds < start_seconds:
         raise ValueError("Could not predict sponsored segment.")
