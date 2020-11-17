@@ -131,6 +131,5 @@ dmypy.json
 dataset/
 
 # Sample data for development
-results/
 notebooks/runs
 notebooks/scans
