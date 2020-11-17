@@ -128,10 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-downloads/
+dataset/
 
 # Sample data for development
-sampledata/
 results/
 notebooks/runs
 notebooks/scans
