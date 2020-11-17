@@ -46,8 +46,8 @@ python -m dsbfetch --limit-count=20 segments.csv downloads/
 The training process takes a few steps due to the complicated architecture.
 
 1) Index the dataset (and save the index) using the [PrescanDatasets](notebooks/PrescanDatasets.ipynb) notebook.
-2) Train the ResNet (possibly on a subset of the dataset) using the [Train_ResNet](notebooks/Train_ResNet.ipynb) notebook.
-3) Use the [Apply_ResNet](notebooks/Apply_ResNet.ipynb) notebook to pre-process the dataset by feeding all frames through the ResNet and storing the output encodings.
-4) Train the Encoder/Decoder architecture using the pre-processed dataset using the [Train_RNN](notebooks/Train_RNN.ipynb) notebook.
-5) Evaluate the ResNet as a baseline using the [Eval_CNN](notebooks/Eval_CNN.ipynb) notebook and the full Encoder/Decoder architecture using the [Eval_RNN](notebooks/Eval_RNN.ipynb).
-6) You can use the trained models through the prediction script as well.
+2) Train the ResNet (possibly on a subset of the dataset) using the [TrainResNet](notebooks/TrainResNet.ipynb) notebook.
+3) Use the [ApplyResNet](notebooks/ApplyResNet.ipynb) notebook to pre-process the dataset by feeding all frames through the ResNet and storing the output encodings.
+4) Train the Encoder/Decoder architecture using the pre-processed dataset using the [TrainRNN](notebooks/TrainRNN.ipynb) notebook.
+5) Evaluate the ResNet as a baseline using the [EvalCNN](notebooks/EvalCNN.ipynb) notebook and the full Encoder/Decoder architecture using the [EvalRNN](notebooks/EvalRNN.ipynb).
+6) You can now use the trained models through the prediction script as well.
