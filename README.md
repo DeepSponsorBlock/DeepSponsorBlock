@@ -3,6 +3,10 @@ Deep learning-based solution for identifying sponsored content segments on YouTu
 
 This repository contains our [models](dsbtorch/train/models.py), [training scripts](notebooks/), [pretrained weights](results/), [dataset downloader](dsbfetch/video.py) and [prediction script](dsbfetch/predict.py) (which also demonstrates the end-to-end flow).
 
+Click [here](https://www.youtube.com/watch?v=gvpOPB_hhxo) for a video detailing the architecture and results.
+
+This project was completed in Autumn 2020 for Stanford's CS 230 by Nikhil Athreya, Cem Gokmen and Jennie Yang.
+
 ## Running predictions
 Run the `dsbfetch predict` command as follows to run a prediction by video ID using our pretrained weights. Note that this will download the video using FFmpeg and run the ResNet and the decoder on it, which works well on CUDA. You can change the ResNet batch size using the `--batch-size` option if the current batch size causes memory issues.
 
