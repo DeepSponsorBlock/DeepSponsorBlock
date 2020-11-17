@@ -84,13 +84,12 @@ class DecoderRNN(nn.Module):
     start and end labels using input feature vectors of all frames in video."""
 
     def __init__(self, CNN_embed_dim=300, h_RNN_layers=2, h_RNN=256,
-                 h_FC_dim=128, sigmoid=True):
+                 sigmoid=True):
         super(DecoderRNN, self).__init__()
 
         self.RNN_input_size = CNN_embed_dim
         self.h_RNN_layers = h_RNN_layers  # RNN hidden layers
         self.h_RNN = h_RNN  # RNN hidden nodes
-        self.h_FC_dim = h_FC_dim
 
         self.start_LSTM = nn.LSTM(
             input_size=self.RNN_input_size,
@@ -138,7 +137,7 @@ class DecoderRNN(nn.Module):
 
 def PreprocessedEncoderDecoder(
         in_features, fc_hidden1=512, fc_hidden2=512, CNN_embed_dim=300,
-        h_RNN_layers=2, h_RNN=256, h_FC_dim=128, sigmoid=True,
+        h_RNN_layers=2, h_RNN=256, sigmoid=True,
         weights_path=None, **kwargs):
     """A module combining the encoder (converting ResCNN output to encoding) and
     the decoder (converting the encoding to the start/end labels). For use with
@@ -147,7 +146,7 @@ def PreprocessedEncoderDecoder(
 
     encoder = Encoder(
         in_features, fc_hidden1, fc_hidden2, CNN_embed_dim)
-    decoder = DecoderRNN(CNN_embed_dim, h_RNN_layers, h_RNN, h_FC_dim, sigmoid)
+    decoder = DecoderRNN(CNN_embed_dim, h_RNN_layers, h_RNN, sigmoid)
 
     model = nn.Sequential(encoder, decoder)
 
