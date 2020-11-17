@@ -65,7 +65,7 @@ def predict(
         print("Loading Encoder/Decoder.")
     rnn_path = WEIGHTS_PATH / "preprocessed_encoder_decoder.weights"
     rnn = dsbtorch.PreprocessedEncoderDecoder(
-        in_features=cnn.fc.in_features, sigmoid=False,
+        in_features=2048, sigmoid=False,
         weights_path=rnn_path, map_location={'cuda:0': DEVICE_NAME}).to(DEVICE)
     rnn.eval()
 
