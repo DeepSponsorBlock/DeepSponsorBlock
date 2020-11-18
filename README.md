@@ -51,3 +51,7 @@ The training process takes a few steps due to the complicated architecture.
 4) Train the Encoder/Decoder architecture using the pre-processed dataset using the [TrainRNN](notebooks/TrainRNN.ipynb) notebook.
 5) Evaluate the ResNet as a baseline using the [EvalCNN](notebooks/EvalCNN.ipynb) notebook and the full Encoder/Decoder architecture using the [EvalRNN](notebooks/EvalRNN.ipynb).
 6) You can now use the trained models through the prediction script as well.
+
+## Licensing
+
+Data used to train this model and `segments.csv` use the [SponsorBlock](https://sponsor.ajay.app/) dataset by [Ajay Ramachandran](https://ajay.app/) and are licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
